@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 
 def make_beta_schedule(schedule='linear', n_timesteps=1000, start=1e-5, end=1e-2):
@@ -11,8 +12,8 @@ def make_beta_schedule(schedule='linear', n_timesteps=1000, start=1e-5, end=1e-2
         betas = torch.sigmoid(betas) * (end - start) + start
     elif schedule == "constant":
         betas = torch.ones(n_timesteps) * start 
-    elif schedule == "cum_geometric":
-        cum_betas = start * (end / start) ** (torch.linspace(0, 1, n_timesteps))
-        cum_betas = torch.cat([cum_betas, torch.zeros(1)])
-        betas = cum_betas[:-1] - cum_betas[1:]
+    elif schedule == "exp":
+        betas = torch.exp(torch.linspace(np.log(start), np.log(end), n_timesteps))
+    else:
+        raise ValueError("Unknown schedule")
     return betas

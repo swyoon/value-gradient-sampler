@@ -1,4 +1,5 @@
 is_particle_exp: True
+final_noise: False
 sampler:
   _target_: vgs.models.vgsampler.ValueGradientSampler
   value:
@@ -9,8 +10,8 @@ sampler:
       _target_: vgs.models.modules_temb.FCNet_temb
       in_dim: 6 # n_particles * (n_particles - 1) // 2
       out_dim: 1
-      hidden_dim: 1024
-      t_emb_dim: 1024
+      hidden_dim: 512
+      t_emb_dim: 512
   n_step: 30
   sample_shape: [8] # n_particles * n_dim
   s2_schedule: quad
@@ -32,14 +33,14 @@ buffer:
 
 energy_model:
   _target_: vgs.energy.DW4.MultiDoubleWellPotential
-  data_path: vgs/particle_data/DW4/val_DW4_rerun.npy
+  data_path: vgs/particle_data/DW4/val_DW4_2000.npy
 
 training:
   n_iter: 3000
   batch_size: 512
   save_iter: 300
   log_iter: 50
-  n_eval: 2e3
+  n_eval: 2000
 
 off_policy:
   noise_scale: 1.2

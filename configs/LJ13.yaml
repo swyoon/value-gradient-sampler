@@ -15,19 +15,19 @@ sampler:
     dis_reciprocal: True
   n_step: 100
   sample_shape: [39] # n_particles * n_dim
-  s2_schedule: quad
-  s2_start: 0.01
+  s2_schedule: exp
+  s2_start: 0.05
   s2_end: 1e-4
   alpha_method: ve
   tau: 1
-  ema: 0.95
+  ema: 0.9
   v_lr: 1e-5
   i_lr: 1e-4
   clip_energy: 100.0
   clip_grad: 1.0
   TD_loss: smooth_l1
   D_effective: 36 # (n_particles-1) * n_dim
-  scale_with_D: True 
+  scale_with_D: True
 
 
 buffer:

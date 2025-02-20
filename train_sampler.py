@@ -108,7 +108,7 @@ if __name__ == "__main__":
                     print(f"Best TVD-E : {best_tvd_e}")
             logger.log({**d_eval}, i_iter)
 
-        if i_iter % save_iter:
+        if i_iter % save_iter == 0:
             """visualize (x, y) of the first particle"""
             fig, axs = plt.subplots(ncols=6, figsize=(4*6,4))
             for i_ax, ax in enumerate(axs):
