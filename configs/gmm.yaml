@@ -18,9 +18,10 @@ sampler:
   ema: 0.9
   v_lr: 1e-4
   i_lr: 1e-3
-  
+
 
 buffer:
+  use: True
   n_update: 1
 
 
@@ -37,3 +38,5 @@ training:
 
 off_policy:
   noise_scale: 1.2
+
+seed: 0

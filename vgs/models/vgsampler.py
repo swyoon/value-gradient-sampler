@@ -134,6 +134,48 @@ class ValueGradientSampler(nn.Module):
         return d_sample
     
 
+    def value_update_step_TD(self, d_sample, energy=None):
+        """Temporal difference update of value network.
+        EMA update + backward update order
+        """
+        mu = torch.stack(d_sample['l_mu']) # (T, B, D)
+        velocity = 0.5 * (mu **2).sum(dim=-1) / self.s2.view(-1,1) / (self.alpha.view(-1,1)**2)  # (T, B)
+        d_train = {} 
+        d_v_loss = {}
+        d_velocity = {}   
+        l_v_loss = []
+        l_velocity = []
+        for t in reversed(range(self.n_step)):
+            self.opt_v.zero_grad()
+            self.value.eval()
+            state = d_sample['l_sample'][t]
+            next_state = self.alpha[t] * state - mu[t] + torch.randn_like(state) * self.sigma[t] # Resample to break the correlation between samples
+            if t == self.n_step - 1 and energy is not None:
+                v_xtp1 = torch.clamp(energy(next_state).squeeze(), max = self.clip_energy) if self.clip_energy is not None else energy(next_state).squeeze()
+            else:
+                v_xtp1 = self.value(next_state, t+1).squeeze() if not self.scale_with_D else self.value(next_state, t+1).squeeze() * self.D
+            target = v_xtp1 + self.tau * (velocity[t] - self. D * torch.log(self.alpha[t])) # Included all constant terms, Used the deterministic running cost. 
+            self.value_on.train()
+            v_xt = self.value_on(state, t).squeeze() if not self.scale_with_D else self.value_on(state, t).squeeze() * self.D
+            v_loss = self.get_loss(v_xt/self.D, target/self.D) # Normalized by D to prevent the loss from growing with D
+            v_loss.backward()
+            self.opt_v.step()
+            d_v_loss[f'value/v_loss_{t}_'] = v_loss.item()
+            d_velocity[f'velocity/velocity_{t}_'] = velocity[t].mean().item()
+            l_v_loss.append(v_loss.item())
+            l_velocity.append(velocity[t].mean().item())
+        self.update_value() # Since the velocity is calculated based on a fixed target value, we also fix the target value during the for loop.
+        
+        if self.opt_i is not None:
+            self.update_init_sigma(len(state), state.device)
+
+        v_loss_mean, velocity_mean = np.mean(l_v_loss), np.mean(l_velocity)
+        d_train['value/v_loss_avg_'] = v_loss_mean
+        d_train['velocity/velocity_avg_'] = velocity_mean
+        d_train.update({**d_v_loss, **d_velocity})
+        return d_train 
+    
+
     def value_update_step_TD_buffer(self, d_sample, energy=None, n_update=1):
         """Temporal difference update of value network.
         EMA update + shuffled timestep update using buffer

@@ -20,6 +20,7 @@ sampler:
   i_lr: 1e-2
 
 buffer:
+  use: True
   n_update: 3
 
 energy_model:
@@ -35,3 +36,5 @@ training:
 
 off_policy:
   noise_scale: 1.25
+
+seed: 0

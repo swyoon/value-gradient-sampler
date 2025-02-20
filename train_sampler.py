@@ -16,6 +16,7 @@ from hydra.utils import instantiate
 import wandb
 from utils.particle_utils import remove_mean
 from utils.module_utils import *
+import random
 
 
 ################################
@@ -47,6 +48,10 @@ if __name__ == "__main__":
         os.makedirs(logdir)
 
     device = "cuda:{}".format(args.device)
+
+    random.seed(cfg.seed)
+    np.random.seed(cfg.seed)
+    torch.manual_seed(cfg.seed)
   
     energy_model = instantiate(cfg.energy_model)
     print(energy_model)
@@ -77,6 +82,7 @@ if __name__ == "__main__":
     log_iter = cfg.training.log_iter
     save_iter = cfg.training.save_iter if 'save_iter' in cfg.training else log_iter
     val_iter = cfg.training.val_iter if 'val_iter' in cfg.training else log_iter
+    use_buffer = cfg.buffer.use
     is_particle_exp = cfg.is_particle_exp if 'is_particle_exp' in cfg else False
     final_noise = cfg.final_noise if 'final_noise' in cfg else True
     
@@ -87,7 +93,10 @@ if __name__ == "__main__":
         # update value
         d_sample = sampler.sample(batch_size, device, energy=energy, noise_scale=noise_scale)
 
-        d_train = sampler.value_update_step_TD_buffer(d_sample, energy=energy, n_update = cfg.buffer.n_update)
+        if use_buffer:
+            d_train = sampler.value_update_step_TD_buffer(d_sample, energy=energy, n_update = cfg.buffer.n_update)
+        else:
+            d_train = sampler.value_update_step_TD(d_sample, energy=energy)
         
         if i_iter % log_iter == 0:
             d_sample = sampler.sample(batch_size, device, energy = energy)

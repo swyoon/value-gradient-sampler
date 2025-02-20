@@ -28,6 +28,7 @@ sampler:
 
 
 buffer:
+  use: True
   n_update: 3
 
 
@@ -44,3 +45,5 @@ training:
 
 off_policy:
   noise_scale: 1.2
+
+seed: 0
