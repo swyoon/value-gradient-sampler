@@ -50,5 +50,3 @@ training:
 
 off_policy:
   noise_scale: 1.2
-
-seed: 0

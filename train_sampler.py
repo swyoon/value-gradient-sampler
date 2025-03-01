@@ -49,9 +49,10 @@ if __name__ == "__main__":
 
     device = "cuda:{}".format(args.device)
 
-    random.seed(cfg.seed)
-    np.random.seed(cfg.seed)
-    torch.manual_seed(cfg.seed)
+    if 'seed' in cfg:
+        random.seed(cfg.seed)
+        np.random.seed(cfg.seed)
+        torch.manual_seed(cfg.seed)
   
     energy_model = instantiate(cfg.energy_model)
     print(energy_model)

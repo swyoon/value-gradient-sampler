@@ -17,35 +17,47 @@ conda activate vgs
 pip install -r requirements.txt
 ```
 
-## Training VGS
+
+## **Training VGS**  
 In our paper, we conduct experiments on **sampling from synthetic distributions (GMM & Funnel)** and **particle systems (DW-4, LJ-13)**.  
 Details about each experiment can be found in the paper.  
 
-
 To train the sampler on different distributions, use the following commands:  
 
-- GMM 
+- **GMM**  
     ```bash
-    python train_sampler.py --config configs/gmm.yaml --device 0 --run YOUR_RUN_NAME --exp_num 0
+    python train_sampler.py --config configs/gmm.yaml --device 0 --run RUN_NAME --exp_num 0
     ```
-- Funnel
+- **Funnel**  
     ```bash
-    python train_sampler.py --config configs/funnel.yaml --device 0 --run YOUR_RUN_NAME --exp_num 0
+    python train_sampler.py --config configs/funnel.yaml --device 0 --run RUN_NAME --exp_num 0
     ```
-- DW-4 
+- **DW-4**  
     ```bash
-    python train_sampler.py --config configs/dw4.yaml --device 0 --run YOUR_RUN_NAME --exp_num 0
+    python train_sampler.py --config configs/dw4.yaml --device 0 --run RUN_NAME --exp_num 0
     ```
-- LJ-13  
+- **LJ-13**  
     ```bash
-    python train_sampler.py --config configs/lj13.yaml --device 0 --run YOUR_RUN_NAME --exp_num 0
+    python train_sampler.py --config configs/lj13.yaml --device 0 --run RUN_NAME --exp_num 0
     ```
 
-You can analyze the experimental results using **Weights & Biases (wandb).** 
+The training configuration files, logs, and results are saved in the log directory:  
+```
+results/CONFIGFILE_NAME/RUN_NAME/ (e.g., 'results/gmm/test/')
+```
+You can analyze the experiment results using **Weights & Biases (wandb).**  
 
-## Evaluation  
-To reproduce the metrics reported in our paper, please refer to the evaluation notebooks located in `notebooks/`.  
-In these notebooks, you will need to specify the path to the model checkpoint, which can be found in `checkpoints/`.  
+
+## **Evaluation**  
+This section provides a brief overview of the evaluation metrics reported in our paper and explains how to obtain them using this repository. For a detailed description, please refer to our paper.  
+
+### **Synthetic Distribution Experiments**  
+For these experiments, we report the **Sinkhorn Distance ($\mathcal{W}^2_\gamma$)**, **Total Variation Distance - Energy (TVD-E)**, and **Average Standard Deviation Error Across the Marginals ($\Delta std$)**, evaluated using $10^5$ samples.  
+These metrics are automatically recorded in the `results_{EXP_NUM}.txt` file, which is generated in the log directory after the training is completed.
+
+### **Particle System Experiments** 
+For these experiments, we report **Total Variation Distance - Energy & Interatomic Distance (TVD-E & TVD-D)** and **Wasserstein Distance ($\mathcal{W}^2$)**, evaluated using 2000 samples.  
+The model checkpoint with the lowest validation TVD-E is automatically saved in the log directory during training. To evaluate the metrics using the saved checkpoint, use the evaluation notebooks located in notebooks/. You will need to set the variable `sampler_ckpt = PATH_TO_YOUR_CHECKPOINT`. By default, this variable is set to the provided model checkpoints in `checkpoints/`, which allows you to reproduce the exact metrics reported in our paper.
 
 
 ## Citation
