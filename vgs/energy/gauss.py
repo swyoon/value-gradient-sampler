@@ -53,6 +53,10 @@ def gmm_params(name: str = "heart", dim: int = 2):
         freq = 2 * torch.pi * torch.arange(1, 9) / 8
         loc = torch.stack([4.0 * freq.cos(), 4.0 * freq.sin()], dim=1)
         factor = math.sqrt(0.3)
+    elif name == "4gauss":
+        x_coords = torch.linspace(-2, 2, 2)
+        loc = torch.cartesian_prod(x_coords, x_coords)
+        factor = math.sqrt(0.13)
     else:
         raise ValueError("Unknown mode for the Gaussian mixture.")
 

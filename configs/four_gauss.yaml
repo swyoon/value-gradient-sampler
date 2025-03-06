@@ -1,0 +1,40 @@
+sampler:
+  _target_: models.vgsampler_v2.ValueGradientSampler_v2
+  value:
+    _target_: models.modules_temb.FCNet_temb
+    in_dim: 2
+    out_dim: 1
+    hidden_dim: 128
+    t_emb_dim: 128
+    activation: relu
+    spec_norm: False
+  n_step: 10
+  sample_shape: [2]
+  s2_schedule: quad
+  s2_start: 0.1
+  s2_end: 0.01
+  alpha_method: vp
+  tau: 1
+  ema: 0.995
+  v_lr: 1e-4
+  i_lr: 1e-2
+  
+
+buffer:
+  use: True
+  n_update: 3
+
+
+energy_model:
+  _target_: dis_distribution.gauss.GMM
+  name: "4gauss"
+
+training:
+  n_iter: 5000
+  batch_size: 128
+  save_iter: 300
+  log_iter: 50
+  n_eval: 1e5
+
+off_policy:
+  noise_scale: 1.2
