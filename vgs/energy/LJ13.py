@@ -1,5 +1,5 @@
 import torch
-from utils.particle_utils import distances_from_vectors, distance_vectors, remove_mean
+from myutils.particle_utils import distances_from_vectors, distance_vectors, remove_mean
 import numpy as np
 
 def lennard_jones_energy_torch(r, eps=1.0, rm=1.0):

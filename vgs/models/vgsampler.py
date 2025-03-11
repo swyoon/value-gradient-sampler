@@ -1,19 +1,16 @@
-"""
-Value Gradient Sampler using mean value network.
-"""
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import grad
 import copy
-from utils.vgs_utils import make_beta_schedule
+from myutils.ebm_utils import move_on_sphere
 
-    
+
 class ValueGradientSampler(nn.Module):
     def __init__(self, value, n_step, sample_shape, s2_schedule, s2_start, s2_end, alpha_method = "vp",
                  tau = 1.0, ema=None, v_lr = 1e-4, i_lr = None, clip_energy = None, clip_grad = None, TD_loss = 'l2', D_effective = None,
-                 scale_with_D = False):
+                 scale_with_D = False, normalize = False):
         """
         value: nn.Module, a value network takes a point and a time step as input and returns a value.
         sample_shape: shape of the samples
@@ -32,6 +29,7 @@ class ValueGradientSampler(nn.Module):
         D_effective: This option is for the particle system experiment where the effective dimension of the system is (n_particles-1) * n_dimensions. 
                      If None, D = np.prod(sample_shape) as usual.
         scale_with_D: bool, if True, the value network learnes the 1/D of the theoretical value function. Useful for normalizing the neural network output.
+        normalize: bool, whether to project the samples to the unit sphere.
         """
         super().__init__()
         self.value = value
@@ -73,6 +71,7 @@ class ValueGradientSampler(nn.Module):
         self.clip_grad = clip_grad
         self.TD_loss = TD_loss
         self.scale_with_D = scale_with_D
+        self.normalize = normalize
 
 
     def update_value(self):
@@ -103,11 +102,13 @@ class ValueGradientSampler(nn.Module):
             raise ValueError(f"Unknown loss function {self.TD_loss}")
               
 
-    def sample(self, n_sample, device, energy=None, noise_scale=1.0, final_noise = True):
+    def sample(self, n_sample, device, energy=None, noise_scale=1.0, final_noise = True, initial = None):
         """generate samples using Value Gradient Sampler.
         Added noise_scale option for off policy learning
         """
-        z = torch.randn((n_sample, *self.sample_shape)).to(device) * self.init_sigma * noise_scale
+        z = torch.randn((n_sample, *self.sample_shape)).to(device) * self.init_sigma * noise_scale if initial is None else initial
+        if self.normalize:
+            z = z / z.norm(dim=-1, keepdim=True)
         l_sample = [z.detach()]
         l_grad = []
         l_mu = []
@@ -125,7 +126,8 @@ class ValueGradientSampler(nn.Module):
             if t == self.n_step - 1 and not final_noise:
                 sigma = 0.0
             mu = grad_E * step_size
-            z = z_alpha - mu + torch.randn_like(z) * sigma * noise_scale
+            drift = - mu + torch.randn_like(z) * sigma * noise_scale
+            z = z + drift if not self.normalize else move_on_sphere(z, drift)
             l_sample.append(z.detach())
             l_grad.append(grad_E.detach())
             l_mu.append(mu.detach())
@@ -134,49 +136,7 @@ class ValueGradientSampler(nn.Module):
         return d_sample
     
 
-    def value_update_step_TD(self, d_sample, energy=None):
-        """Temporal difference update of value network.
-        EMA update + backward update order
-        """
-        mu = torch.stack(d_sample['l_mu']) # (T, B, D)
-        velocity = 0.5 * (mu **2).sum(dim=-1) / self.s2.view(-1,1) / (self.alpha.view(-1,1)**2)  # (T, B)
-        d_train = {} 
-        d_v_loss = {}
-        d_velocity = {}   
-        l_v_loss = []
-        l_velocity = []
-        for t in reversed(range(self.n_step)):
-            self.opt_v.zero_grad()
-            self.value.eval()
-            state = d_sample['l_sample'][t]
-            next_state = self.alpha[t] * state - mu[t] + torch.randn_like(state) * self.sigma[t] # Resample to break the correlation between samples
-            if t == self.n_step - 1 and energy is not None:
-                v_xtp1 = torch.clamp(energy(next_state).squeeze(), max = self.clip_energy) if self.clip_energy is not None else energy(next_state).squeeze()
-            else:
-                v_xtp1 = self.value(next_state, t+1).squeeze() if not self.scale_with_D else self.value(next_state, t+1).squeeze() * self.D
-            target = v_xtp1 + self.tau * (velocity[t] - self. D * torch.log(self.alpha[t])) # Included all constant terms, Used the deterministic running cost. 
-            self.value_on.train()
-            v_xt = self.value_on(state, t).squeeze() if not self.scale_with_D else self.value_on(state, t).squeeze() * self.D
-            v_loss = self.get_loss(v_xt/self.D, target/self.D) # Normalized by D to prevent the loss from growing with D
-            v_loss.backward()
-            self.opt_v.step()
-            d_v_loss[f'value/v_loss_{t}_'] = v_loss.item()
-            d_velocity[f'velocity/velocity_{t}_'] = velocity[t].mean().item()
-            l_v_loss.append(v_loss.item())
-            l_velocity.append(velocity[t].mean().item())
-        self.update_value() # Since the velocity is calculated based on a fixed target value, we also fix the target value during the for loop.
-        
-        if self.opt_i is not None:
-            self.update_init_sigma(len(state), state.device)
-
-        v_loss_mean, velocity_mean = np.mean(l_v_loss), np.mean(l_velocity)
-        d_train['value/v_loss_avg_'] = v_loss_mean
-        d_train['velocity/velocity_avg_'] = velocity_mean
-        d_train.update({**d_v_loss, **d_velocity})
-        return d_train 
-    
-
-    def value_update_step_TD_buffer(self, d_sample, energy=None, n_update=1):
+    def value_update_step_TD(self, d_sample, energy=None, n_update=1):
         """Temporal difference update of value network.
         EMA update + shuffled timestep update using buffer
         """
@@ -234,3 +194,20 @@ class ValueGradientSampler(nn.Module):
         d_train['velocity/velocity_avg_'] = velocity_mean
         return d_train
     
+
+
+def make_beta_schedule(schedule='linear', n_timesteps=1000, start=1e-5, end=1e-2):
+    if schedule == 'linear':
+        betas = torch.linspace(start, end, n_timesteps)
+    elif schedule == "quad":
+        betas = torch.linspace(start ** 0.5, end ** 0.5, n_timesteps) ** 2
+    elif schedule == "sigmoid":  # this is what is used in Ying Fan
+        betas = torch.linspace(-6, 6, n_timesteps)
+        betas = torch.sigmoid(betas) * (end - start) + start
+    elif schedule == "constant":
+        betas = torch.ones(n_timesteps) * start 
+    elif schedule == "exp":
+        betas = torch.exp(torch.linspace(np.log(start), np.log(end), n_timesteps))
+    else:
+        raise ValueError("Unknown schedule")
+    return betas

@@ -8,20 +8,19 @@ import os
 import matplotlib.pyplot as plt
 import argparse
 from vgs.eval.metrics import *
-import utils.cmd_utils as cmd
+import myutils.cmd_utils as cmd
 from tensorboardX import SummaryWriter
-from utils.logger import BaseLogger
+from myutils.logger import BaseLogger
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
 import wandb
-from utils.particle_utils import remove_mean
-from utils.module_utils import *
+from myutils.particle_utils import remove_mean
+from myutils.module_utils import *
 import random
 
 
 ################################
-# Example Usage: python train_sampler.py --config configs/gmm.yaml --device 1 --run test --exp_num 0 
-# Example Usage(Funnel) : python train_sampler.py --config configs/funnel_temp.yaml --device 0 --run funnel_20 -exp_num 1
+# Example Usage: python train_sampler.py --config configs/gmm.yaml --device 0 --run test --exp_num 0 
 ################################
 
 if __name__ == "__main__":
@@ -31,11 +30,13 @@ if __name__ == "__main__":
     parser.add_argument('--run', type=str, required=True, help='name of the run')
     parser.add_argument('--save_training_visualization', type=bool, default=False, help='Whether to save value visualization while training')
     parser.add_argument('--exp_num', type=int, default=0, help='experiment index')
+    
     args, unknown = parser.parse_known_args()
     d_cmd_cfg = cmd.parse_unknown_args(unknown)
     d_cmd_cfg = cmd.parse_nested_args(d_cmd_cfg)
     print("Overriding", d_cmd_cfg)
 
+    # load configs
     cfg = OmegaConf.load(args.config)
     cfg = OmegaConf.merge(
         cfg, OmegaConf.create(d_cmd_cfg)
@@ -64,8 +65,6 @@ if __name__ == "__main__":
     print('Value Network')
     print_size(sampler.value)
 
-    noise_scale = cfg.off_policy.noise_scale
-
     n_step = sampler.n_step
     d_v_loss = {t:[] for t in range(n_step)}
     l_v_loss = []
@@ -83,7 +82,7 @@ if __name__ == "__main__":
     log_iter = cfg.training.log_iter
     save_iter = cfg.training.save_iter if 'save_iter' in cfg.training else log_iter
     val_iter = cfg.training.val_iter if 'val_iter' in cfg.training else log_iter
-    use_buffer = cfg.buffer.use
+    noise_scale = cfg.off_policy.noise_scale
     is_particle_exp = cfg.is_particle_exp if 'is_particle_exp' in cfg else False
     final_noise = cfg.final_noise if 'final_noise' in cfg else True
     
@@ -94,10 +93,7 @@ if __name__ == "__main__":
         # update value
         d_sample = sampler.sample(batch_size, device, energy=energy, noise_scale=noise_scale)
 
-        if use_buffer:
-            d_train = sampler.value_update_step_TD_buffer(d_sample, energy=energy, n_update = cfg.buffer.n_update)
-        else:
-            d_train = sampler.value_update_step_TD(d_sample, energy=energy)
+        d_train = sampler.value_update_step_TD(d_sample, energy=energy, n_update = cfg.buffer.n_update)
         
         if i_iter % log_iter == 0:
             d_sample = sampler.sample(batch_size, device, energy = energy)

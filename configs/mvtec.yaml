@@ -1,0 +1,55 @@
+sampler:
+  _target_: vgs.models.vgsampler.ValueGradientSampler
+  value:
+    _target_: vgs.models.modules_temb.FCNet_temb
+    in_dim: 272
+    out_dim: 1
+    hidden_dim: 1024
+    t_emb_dim: 256
+  n_step: 10
+  sample_shape: [272]
+  s2_schedule: constant
+  s2_start: 1e-3
+  s2_end: 1e-3
+  alpha_method: vp
+  tau: 1
+  ema: 0.0
+  v_lr: 1e-4
+  D_effective: 271
+  normalize: True
+
+energy:
+  _target_: vgs.models.modules.AE_energy
+  tau: 0.1 # Entropy regularization
+  learn_out_scale: True # If True, energy = out_scale * recon_error
+  encoder:
+    _target_: vgs.models.modules.FCNet
+    in_dim: 272
+    out_dim: 128
+    l_hidden: [1024, 1024, 1024]
+    activation: relu
+    out_activation: linear
+  decoder:
+    _target_: vgs.models.modules.FCNet
+    in_dim: 128
+    out_dim: 272
+    l_hidden: [1024, 1024, 1024]
+    activation: relu
+    out_activation: linear
+
+  
+training:
+  energy_ckpt: checkpoints/mvtec_ckpt.pth
+  ood_epoch: 1
+  n_epochs: 100
+  batchsize: 4
+  e_lr: 1e-4
+  log_iter: 50
+  gamma: 1.0 # Neccesary when learning out scale is True
+
+buffer:
+  n_update: 3
+
+seed: 0
+
+

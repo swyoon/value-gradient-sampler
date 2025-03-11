@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import math
-from utils.particle_utils import compute_distances
+from myutils.particle_utils import compute_distances
 
 
 def get_activation(s_act):
@@ -101,3 +99,34 @@ class invariant_wrapper(nn.Module):
         else:
             input = (distances ** 2 + self.eps).sqrt() # to avoid near-zero distances
         return self.net(input, t)
+    
+
+class AE_energy(nn.Module):
+    """Uses Autoencoder architecture for modeling energy functions"""
+
+    def __init__(
+        self,
+        encoder,
+        decoder,
+        tau=1.0,
+        learn_out_scale=True,
+    ):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.tau = tau  # Temperature constraint
+        self.learn_out_scale = learn_out_scale
+        if learn_out_scale:
+            self.register_parameter("out_scale", nn.Parameter(torch.tensor(1.0)))
+
+    def forward(self, x):
+        z = self.encoder(x)
+        # Normalize z
+        z = z / torch.norm(z, dim=1, keepdim=True)
+        recon = self.decoder(z)
+        # Normalize recon
+        recon = recon / torch.norm(recon, dim=1, keepdim=True)
+        recon_error = ((x - recon) ** 2).view(len(x), -1).mean(dim=1)
+        out = recon_error if not self.learn_out_scale else (self.out_scale ** 2) * recon_error
+        out = out / self.tau
+        return out

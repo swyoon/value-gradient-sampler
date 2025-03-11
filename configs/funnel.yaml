@@ -20,7 +20,6 @@ sampler:
   i_lr: 1e-2
 
 buffer:
-  use: True
   n_update: 3
 
 energy_model:

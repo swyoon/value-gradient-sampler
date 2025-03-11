@@ -8,7 +8,7 @@ import pykeops.torch as keops
 import tqdm
 import numpy as np
 from vgs.energy.base import Distribution
-from utils.particle_utils import remove_mean
+from myutils.particle_utils import remove_mean
 from .sinkhorn import *
 
 

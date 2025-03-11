@@ -21,7 +21,6 @@ sampler:
   
 
 buffer:
-  use: True
   n_update: 3
 
 

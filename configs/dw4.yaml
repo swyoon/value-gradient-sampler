@@ -28,13 +28,12 @@ sampler:
 
 
 buffer:
-  use: True
   n_update: 3
 
 
 energy_model:
   _target_: vgs.energy.DW4.MultiDoubleWellPotential
-  data_path: vgs/particle_data/DW4/val_DW4_2000.npy
+  data_path: datasets/particle_exp/val_DW4_2000.npy
 
 training:
   n_iter: 3000

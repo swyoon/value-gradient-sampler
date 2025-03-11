@@ -2,7 +2,7 @@
 Original code from https://github.com/noegroup/bgflow.git, modified for compatibility with dis-distribution
 """
 import torch
-from utils.particle_utils import compute_distances, remove_mean
+from myutils.particle_utils import compute_distances, remove_mean
 import numpy as np
 
 __all__ = ["MultiDoubleWellPotential"]
