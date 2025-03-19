@@ -39,7 +39,7 @@ energy:
 
   
 training:
-  energy_ckpt: checkpoints/mvtec_ckpt.pth
+  energy_ckpt: checkpoints/mvtec_pretrained_ckpt.pth
   ood_epoch: 1
   n_epochs: 100
   batchsize: 4
