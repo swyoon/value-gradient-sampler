@@ -105,40 +105,6 @@ class ValueGradientSampler(nn.Module):
         """generate samples using Value Gradient Sampler.
         Added noise_scale option for off policy learning
         """
-        if self.normalize:
-            return self.sample_normalized(n_sample, device, energy, noise_scale, final_noise, initial)
-        
-        z = torch.randn((n_sample, *self.sample_shape)).to(device) * self.init_sigma * noise_scale if initial is None else initial
-        l_sample = [z.detach()]
-        l_grad = []
-        l_mu = []
-        self.value.eval()
-        for t in range(self.n_step):
-            z_alpha = self.alpha[t]*z
-            z_alpha.requires_grad_(True)
-            if t == self.n_step - 1 and energy is not None:    
-                E_z = torch.clamp(energy(z_alpha), max = self.clip_energy).sum() if (self.clip_energy is not None) and (self.clip_grad is None) else energy(z_alpha).sum()
-            else:
-                E_z = self.value(z_alpha, t+1).sum() if not self.scale_with_D else self.value(z_alpha, t+1).sum()  * self.D
-            grad_E = grad(E_z, z_alpha)[0]
-            step_size = self.s2[t]* (self.alpha[t]**2) * (1/self.tau)
-            sigma = self.sigma[t]
-            if t == self.n_step - 1 and not final_noise:
-                sigma = 0.0
-            mu = grad_E * step_size
-            z = z_alpha - mu + torch.randn_like(z) * sigma * noise_scale
-            l_sample.append(z.detach())
-            l_grad.append(grad_E.detach())
-            l_mu.append(mu.detach())
-            
-        d_sample = {'sample': z, 'l_sample': l_sample, 'l_grad': l_grad, 'l_mu': l_mu}
-        return d_sample
-
-
-    def sample_normalized(self, n_sample, device, energy=None, noise_scale=1.0, final_noise = True, initial = None):
-        """generate samples using Value Gradient Sampler.
-        Added noise_scale option for off policy learning
-        """
         z = torch.randn((n_sample, *self.sample_shape)).to(device) * self.init_sigma * noise_scale if initial is None else initial
         if self.normalize:
             z = z / z.norm(dim=-1, keepdim=True)
@@ -160,7 +126,7 @@ class ValueGradientSampler(nn.Module):
                 sigma = 0.0
             mu = grad_E * step_size
             drift = - mu + torch.randn_like(z) * sigma * noise_scale
-            z = z + drift if not self.normalize else move_on_sphere(z, drift)
+            z = z_alpha + drift if not self.normalize else move_on_sphere(z_alpha, drift)
             l_sample.append(z.detach())
             l_grad.append(grad_E.detach())
             l_mu.append(mu.detach())
