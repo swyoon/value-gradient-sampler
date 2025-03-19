@@ -1,23 +1,23 @@
 sampler:
   _target_: vgs.models.vgsampler.ValueGradientSampler
   value:
-    _target_: vgs.models.modules_temb.FCNet_temb
+    _target_: vgs.models.modules_temb.FCNet_temb_deeperv2
     in_dim: 10
     out_dim: 1
-    hidden_dim: 2048
-    t_emb_dim: 2048
-    activation: relu
-    spec_norm: False
-  n_step: 10
+    hidden_dim: 1024
+    t_emb_dim: 1024
+  n_step: 30
   sample_shape: [10]
   s2_schedule: quad
-  s2_start: 0.1
-  s2_end: 0.001
-  alpha_method: vp
+  s2_start: 0.5
+  s2_end: 0.0005
+  alpha_method: ve
   tau: 1
-  ema: 0.995
+  ema: 0.95
   v_lr: 1e-4
   i_lr: 1e-2
+  clip_energy: 100
+  scale_with_D: True 
 
 buffer:
   n_update: 3
@@ -27,13 +27,13 @@ energy_model:
   dim : 10
 
 training:
-  n_iter: 10000
-  batch_size: 128
+  n_iter: 2000
+  batch_size: 1024
   save_iter: 300
   log_iter: 50
-  n_eval: 1e5
+  n_eval: 1e3
 
 off_policy:
-  noise_scale: 1.25
+  noise_scale: 1.1
 
 seed: 0
