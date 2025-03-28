@@ -126,7 +126,7 @@ class AE_energy(nn.Module):
         recon = self.decoder(z)
         # Normalize recon
         recon = recon / torch.norm(recon, dim=1, keepdim=True)
-        recon_error = ((x - recon) ** 2).view(len(x), -1).mean(dim=1)
+        recon_error = ((x - recon) ** 2).view(len(x), -1).sum(dim=1)
         out = recon_error if not self.learn_out_scale else (self.out_scale ** 2) * recon_error
         out = out / self.tau
         return out

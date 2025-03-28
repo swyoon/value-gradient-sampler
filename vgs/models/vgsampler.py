@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import grad
 import copy
-from myutils.ebm_utils import move_on_sphere
+from myutils.ebm_utils import project_vel, move_on_sphere
 
 
 class ValueGradientSampler(nn.Module):
@@ -124,9 +124,13 @@ class ValueGradientSampler(nn.Module):
             sigma = self.sigma[t]
             if t == self.n_step - 1 and not final_noise:
                 sigma = 0.0
-            mu = grad_E * step_size
-            drift = - mu + torch.randn_like(z) * sigma * noise_scale
-            z = z_alpha + drift if not self.normalize else move_on_sphere(z_alpha, drift)
+            if not self.normalize:
+                mu = grad_E * step_size
+                z = z_alpha - mu + torch.randn_like(z) * sigma * noise_scale
+            else:
+                mu = project_vel(z_alpha, grad_E * step_size)
+                noise = project_vel(z_alpha, torch.randn_like(z) * sigma * noise_scale)
+                z = move_on_sphere(z_alpha, - mu + noise)
             l_sample.append(z.detach())
             l_grad.append(grad_E.detach())
             l_mu.append(mu.detach())
@@ -169,7 +173,10 @@ class ValueGradientSampler(nn.Module):
                 sigma = torch.sqrt(s2) * alpha # (B)
                 is_last = (t == self.n_step - 1).float() # (B)
                 velocity = 0.5 * (mu **2).sum(dim=-1) / s2 / (alpha**2)  # (B)
-                next_state = alpha.view(-1,1) * state - mu + torch.randn_like(state) * sigma.view(-1,1) # Resample to break the correlation between samples
+                if not self.normalize:
+                    next_state = alpha.view(-1,1) * state - mu + torch.randn_like(state) * sigma.view(-1,1) # Resample to break the correlation between samples
+                else:
+                    next_state = move_on_sphere(alpha.view(-1,1) * state, - mu + project_vel(alpha.view(-1,1) * state, torch.randn_like(state) * sigma.view(-1,1)))
                 energy_term = torch.clamp(energy(next_state).squeeze(), max = self.clip_energy) if self.clip_energy is not None else energy(next_state).squeeze()
                 value_term = self.value(next_state, t+1).squeeze() if not self.scale_with_D else self.value(next_state, t+1).squeeze() * self.D
                 v_xtp1 = energy_term * is_last + value_term * (1 - is_last)

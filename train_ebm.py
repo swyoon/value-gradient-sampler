@@ -130,7 +130,7 @@ if __name__ == '__main__':
         ############################################
         for step, input in enumerate(tqdm(train_loader, ncols=80)):
             x = input[0].to(device)
-
+            D = x.shape[1]
             # Sample positive samples
             x_pos = x
             # Sample negative samples
@@ -141,8 +141,9 @@ if __name__ == '__main__':
             # update energy
             opt_e.zero_grad()
             energy.train()
-            E_pos = energy(x_pos)
-            E_neg = energy(x_neg)
+            # Scale energy by D in loss calculation
+            E_pos = energy(x_pos)/D
+            E_neg = energy(x_neg)/D
             loss_e = E_pos.mean() - E_neg.mean()
             reg = (E_pos**2).mean() + (E_neg**2).mean()
             if gamma is not None:
@@ -155,8 +156,8 @@ if __name__ == '__main__':
 
             # logging
             if i_iter% cfg.training.log_iter == 0:
-                d_energy = {'energy/loss_': loss_e.item(), 'energy/pos_e_': E_pos.mean().item(), 
-                            'energy/neg_e_': E_neg.mean().item(), 'energy/reg_': reg.item()}
+                d_energy = {'energy/loss_': loss_e.item(), 'energy/pos_e_scaled_': E_pos.mean().item(), 
+                            'energy/neg_e_scaled_': E_neg.mean().item(), 'energy/reg_': reg.item()}
                 d_mu = {}
                 for t, mu in zip(range(len(d_sample['l_mu'])), d_sample['l_mu']):
                     d_mu[f'mu_norm/mu_{t}_'] = mu.norm(dim=1).mean().item()

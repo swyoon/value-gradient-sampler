@@ -11,14 +11,14 @@ def get_initial_samples(data, s2):
     The initial samples are obtained by diffusing the data samples on a unit sphere according to the schedule s2
     """
     for i in reversed(range(len(s2))):
-        mu = torch.randn_like(data) * torch.sqrt(s2[i])
-        data = move_on_sphere(data, mu)
+        noise = torch.randn_like(data) * torch.sqrt(s2[i])
+        data = move_on_sphere(data, project_vel(data, noise))
     return data
 
 
-def move_on_sphere(x: torch.Tensor, v: torch.Tensor):
+def project_vel(x: torch.Tensor, v: torch.Tensor):
     """
-    Moves points x on the n-1 sphere in R^n by velocity v.
+    Projects velocity vectors v onto the tangent space of the n-1 sphere at x.
     Assumes x has shape (B, n) and v has shape (B, n).
     
     Args:
@@ -26,15 +26,26 @@ def move_on_sphere(x: torch.Tensor, v: torch.Tensor):
         v: (B, n) velocity vectors in R^n.
     
     Returns:
-        x': (B, n) moved points on the n-1 sphere.
+        v_tan: (B, n) projected velocity vectors in the tangent space of the n-1 sphere.
     """
-    # Project v onto the tangent space of the sphere at x
     v_tan = v - (torch.sum(v * x, dim=-1, keepdim=True) * x)
+    return v_tan
+
+
+def move_on_sphere(x: torch.Tensor, v_tan: torch.Tensor):
+    """
+    Moves points x on the n-1 sphere in R^n by tangent velocity v.
+    Assumes x has shape (B, n) and v has shape (B, n).
     
-    # Compute the norm of the tangential velocity
-    v_tan_norm = torch.norm(v_tan, dim=-1, keepdim=True)
+    Args:
+        x: (B, n) points on the n-1 sphere.
+        v: (B, n) tangent velocity vectors in R^n.
     
+    Returns:
+        x_new: (B, n) moved points on the n-1 sphere.
+    """    
     # Avoid division by zero (if v_tan_norm is 0, no movement occurs)
+    v_tan_norm = torch.norm(v_tan, dim=-1, keepdim=True)
     eps = 1e-8
     v_tan_norm = torch.clamp(v_tan_norm, min=eps)
 
